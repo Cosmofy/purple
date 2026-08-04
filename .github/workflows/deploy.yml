@@ -60,7 +60,7 @@ jobs:
             --agent-runtime-artifact "containerConfiguration={containerUri=$IMAGE_URI}" \
             --role-arn "$AGENT_RUNTIME_ROLE_ARN" \
             --network-configuration "networkMode=PUBLIC" \
-            --protocol-configuration "serverProtocol=HTTP"
+            --protocol-configuration "serverProtocol=A2A"
 
       - name: Wait for AgentCore Runtime
         env:

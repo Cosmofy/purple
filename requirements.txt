@@ -2,4 +2,4 @@ langchain
 langchain-openai
 python-dotenv
 gql[requests]
-bedrock-agentcore
+bedrock-agentcore[a2a-v1]

@@ -9,5 +9,5 @@ COPY helpers ./helpers
 COPY services ./services
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
-EXPOSE 8080
+EXPOSE 9000
 CMD ["python", "main.py"]
