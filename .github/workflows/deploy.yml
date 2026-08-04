@@ -48,3 +48,43 @@ jobs:
           tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Update AgentCore Runtime
+        env:
+          AGENT_RUNTIME_ID: ${{ vars.AGENT_RUNTIME_ID }}
+          AGENT_RUNTIME_ROLE_ARN: ${{ vars.AGENT_RUNTIME_ROLE_ARN }}
+          IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          aws bedrock-agentcore-control update-agent-runtime \
+            --agent-runtime-id "$AGENT_RUNTIME_ID" \
+            --agent-runtime-artifact "containerConfiguration={containerUri=$IMAGE_URI}" \
+            --role-arn "$AGENT_RUNTIME_ROLE_ARN" \
+            --network-configuration "networkMode=PUBLIC" \
+            --protocol-configuration "serverProtocol=HTTP"
+
+      - name: Wait for AgentCore Runtime
+        env:
+          AGENT_RUNTIME_ID: ${{ vars.AGENT_RUNTIME_ID }}
+        run: |
+          for attempt in {1..60}; do
+            status=$(aws bedrock-agentcore-control get-agent-runtime \
+              --agent-runtime-id "$AGENT_RUNTIME_ID" \
+              --query status \
+              --output text)
+
+            echo "AgentCore Runtime status: $status"
+
+            case "$status" in
+              READY)
+                exit 0
+                ;;
+              CREATE_FAILED|UPDATE_FAILED)
+                exit 1
+                ;;
+            esac
+
+            sleep 10
+          done
+
+          echo "Timed out waiting for AgentCore Runtime"
+          exit 1
