@@ -54,13 +54,16 @@ jobs:
           AGENT_RUNTIME_ID: ${{ vars.AGENT_RUNTIME_ID }}
           AGENT_RUNTIME_ROLE_ARN: ${{ vars.AGENT_RUNTIME_ROLE_ARN }}
           IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LIVIA_GRAPHQL_ENDPOINT: ${{ secrets.LIVIA_GRAPHQL_ENDPOINT }}
         run: |
           aws bedrock-agentcore-control update-agent-runtime \
             --agent-runtime-id "$AGENT_RUNTIME_ID" \
             --agent-runtime-artifact "containerConfiguration={containerUri=$IMAGE_URI}" \
             --role-arn "$AGENT_RUNTIME_ROLE_ARN" \
             --network-configuration "networkMode=PUBLIC" \
-            --protocol-configuration "serverProtocol=A2A"
+            --protocol-configuration "serverProtocol=A2A" \
+            --environment-variables "OPENAI_API_KEY=$OPENAI_API_KEY,LIVIA_GRAPHQL_ENDPOINT=$LIVIA_GRAPHQL_ENDPOINT"
 
       - name: Wait for AgentCore Runtime
         env:
