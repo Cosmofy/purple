@@ -1,4 +1,7 @@
+from uuid import uuid4
+
 from langchain.agents import create_agent
+from langchain_core.messages import AIMessageChunk
 from tools import tool_get_picture
 from a2a.helpers.proto_helpers import new_task_from_user_message, new_text_part
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -24,16 +27,48 @@ class CosmofyAgentExecutor(AgentExecutor):
             await event_queue.enqueue_event(task)
 
         updater = TaskUpdater(event_queue, task.id, task.context_id)
-        result = await agent.ainvoke({
+        agent_input = {
             "messages": [
                 {
                     "role": "user",
                     "content": context.get_user_input(),
                 }
             ]
-        })
-        response = result["messages"][-1].text
-        await updater.add_artifact([new_text_part(response)])
+        }
+        artifact_id = str(uuid4())
+        pending_text = None
+        artifact_started = False
+
+        async for message_chunk, metadata in agent.astream(
+            agent_input,
+            stream_mode="messages",
+        ):
+            if not isinstance(message_chunk, AIMessageChunk):
+                continue
+            if metadata.get("langgraph_node") != "model":
+                continue
+
+            text = message_chunk.text
+            if not text:
+                continue
+
+            if pending_text is not None:
+                await updater.add_artifact(
+                    [new_text_part(pending_text)],
+                    artifact_id=artifact_id,
+                    append=artifact_started,
+                    last_chunk=False,
+                )
+                artifact_started = True
+            pending_text = text
+
+        if pending_text is not None:
+            await updater.add_artifact(
+                [new_text_part(pending_text)],
+                artifact_id=artifact_id,
+                append=artifact_started,
+                last_chunk=True,
+            )
         await updater.complete()
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
